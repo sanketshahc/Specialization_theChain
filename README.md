@@ -1,7 +1,7 @@
 # Specialization_theChain
 
 
-For running on google colab
+For running on google colab, set up environment like below, and run main.py:
 
 1. 
 !git clone -b main --single-branch https://github.com/sanketshahc/Specialization_theChain.git
