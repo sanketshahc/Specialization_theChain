@@ -167,6 +167,7 @@ for state in chain:
     k += 1
     concat_this = []
     if k % 500 == 0:
+        print(" 500 flips, computing stats")
         for name, fn in state.updaters.items():
             if name in names:
                 x = fn(state)
@@ -206,6 +207,7 @@ for state in chain:
         threshold_table = (
             pd.concat([threshold_table, threshold_counts], ignore_index=True)
         )
+        print("dumping stats to csv, resetting buffer")
         race_table.to_csv(populations_race, header=False)
         plurality_table.to_csv(pluralities_race, header=False, index=False)
         threshold_table.to_csv(threshold_race, header=False, index=False)
