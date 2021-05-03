@@ -72,7 +72,7 @@ within = gerrychain.constraints.within_percent_of_ideal_population(pop_partition
 # todo, neighborhood splits
 
 # lis of bool fnns
-valid = gerrychain.constraints.Validator([dummy])
+valid = gerrychain.constraints.Validator([visible, within])
 
 
 # PARTITION, PROPOSAL, AND CHAIN
@@ -105,7 +105,7 @@ chain = gerrychain.MarkovChain(
     valid,
     lambda x: True,
     partition_object,
-    5
+    1000000
 )
 
 # notes: the proposal function defines how to step through a chain's 'links', which are the states
@@ -141,12 +141,12 @@ for name, _ in partition_object.updaters.items():
         names.append(name)
 
 names_pops = names.copy()
-names_pops = names.remove('population')
+names_pops.remove('population')
 race_table = (
     pd.DataFrame(columns=names_pops)
         .set_index(['Chain-State', 'District'])
 )
-race_table = race_table.drop('population', axis=1)
+
 names_stats = names.copy()
 names_stats.remove('District')
 names_stats.remove('population')
@@ -158,55 +158,58 @@ threshold_table = (
     pd.DataFrame(columns=names_stats)
         .set_index(['Chain-State'])
 )
+race_table.to_csv(populations_race)
+plurality_table.to_csv(pluralities_race, index = False)
+threshold_table.to_csv(threshold_race, index = False)
 
-for k, state in enumerate(chain):
+k=0
+for state in chain:
     k += 1
     concat_this = []
-    for name, fn in partition_object.updaters.items():
-        if name in names:
-            # updater functions not longer working,
-            # so calling them manually!
-            col = (
-                pd.DataFrame(fn(partition_object).values(), index=fn(partition_object).keys())
-                    .sort_index()
-                    .rename(columns={0: name})
-            )
-            concat_this.append(col)
+    if k % 500 == 0:
+        for name, fn in state.updaters.items():
+            if name in names:
+                x = fn(state)
+                # updater functions no longer working,
+                # so calling them manually!
+                col = (
+                    pd.DataFrame(x.values(), index=x.keys())
+                        .sort_index()
+                        .rename(columns={0: name})
+                )
+                concat_this.append(col)
 
-    _table = pd.concat(concat_this, axis=1)
-    _table = _table.set_index(
-        [
-            pd.Index([k for _ in range(51)]),
-            _table.index
-        ]
-    )
-    _totals = pd.DataFrame(_table['population'])
-    _table = _table.drop('population', axis=1)
-    percent_table = _table / _totals.values
-    plurality_counts = (pd.DataFrame(
-        pd.value_counts(
-            percent_table.idxmax(axis=1),
-            dropna=False
-        ).fillna(0)
-        ).transpose()
-                        )
-    threshold_counts = pd.DataFrame(
-        (percent_table > threshold).sum()
-    )
-    threshold_counts = threshold_counts.transpose()
-    race_table = pd.concat([race_table, percent_table])
-    plurality_table = (
-        pd.concat([plurality_table, plurality_counts], ignore_index=True)
-    )
-    threshold_table = (
-        pd.concat([threshold_table, threshold_counts], ignore_index=True)
-    )
-
-    if k % 100 == 0:
+        _table = pd.concat(concat_this, axis=1)
+        _table = _table.set_index(
+            [
+                pd.Index([k for _ in range(51)]),
+                _table.index
+            ]
+        )
+        _totals = pd.DataFrame(_table['population'])
+        _table = _table.drop('population', axis=1)
+        percent_table = (_table / _totals.values)
+        plurality_counts = (pd.DataFrame(
+            pd.value_counts(
+                percent_table.idxmax(axis=1),
+                dropna=False # not working....keeps on dropping nans...
+            )).transpose() )
+        plurality_counts.fillna(0, inplace=True)
+        threshold_counts = pd.DataFrame(
+            (percent_table > threshold).sum()
+        )
+        threshold_counts = threshold_counts.transpose()
+        race_table = pd.concat([race_table, percent_table])
+        plurality_table = (
+            pd.concat([plurality_table, plurality_counts], ignore_index=True)
+        )
+        threshold_table = (
+            pd.concat([threshold_table, threshold_counts], ignore_index=True)
+        )
         race_table.to_csv(populations_race, header=False)
-        plurality_table.to_csv(pluralities_race, header=False)
-        threshold_table.to_csv(threshold_race, header=False)
-        race_table = race_table.iloc[0:0]  # slicing works but not indexing...
+        plurality_table.to_csv(pluralities_race, header=False, index=False)
+        threshold_table.to_csv(threshold_race, header=False, index=False)
+        race_table = race_table.iloc[0:0]
         plurality_table = plurality_table.iloc[0:0]
         threshold_table = threshold_table.iloc[0:0]
 
@@ -226,66 +229,3 @@ threshold_race.close()
 #             f.write(str(pops))
 # in this example, not resseting data bc only 1000.
 
-# VISUALIZE IT
-##########################
-# all data is attached to the state....so for instance, we can record the average ethnic breakdown or something.
-# essentially visualize the updator returned lists.
-# N_points = 100000
-# n_bins =
-#
-# # Generate a normal distribution, center at x=0 and y=5
-# x = np.random.randn(N_points)
-# y = .4 * x + np.random.randn(100000) + 5
-#
-# fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
-
-# We can set the number of bins with the `bins` kwarg
-# axs[0].hist(x, bins=n_bins)
-
-plurality_data = pd.read_csv("outputs/pluralities_by_race.csv")
-
-ax = plurality_data.plot(kind='bar', stacked=True, figsize=(10, 6))
-ax.set_ylabel('Districts (51 total)')
-ax.set_xlabel('Distribution Space')
-plt.legend(title='Pluralities', bbox_to_anchor=(1.0, 1), loc='upper left')
-# plt.savefig('stacked.png')  # if needed
-plt.show()
-
-threshold_data = pd.read_csv("outputs/threshold_by_race.csv.csv")
-ax.set_ylabel('Districts (51 total)')
-ax.set_xlabel('Distribution Space')
-
-# hist = threshold_data.hist(bins=250)
-# threshold_data.hist(by=np.random.randint(0, 4, 1000), figsize=(6, 4));
-threshold_data["white"].hist()
-# threshold_data[]
-# threshold_data[]
-# threshold_data[]
-# threshold_data[]
-# threshold_data[]
-# plurality_data.hist
-## Histograms
-
-# For # districts  < > (x)median
-# MSE of median incomes to total median income?
-
-# For Population, per race, % of districts where race > x%
-# Per race, std across each states (across distrsicts)
-
-## STacked Bar Charts
-# Stacked bar chart of # of districts where each race has plurality, per state....
-
-#     print(count)
-#     # pops.append(each["population"])
-#     # if count % 100 == 0:
-#         # with open("log.txt", "w") as f:
-#             # f.write(pops)
-#             # in this example, not reseting data bc only 1000.
-#
-# # can write data to file every so often if needed.
-#
-# # Visualization
-#
-# # all data is attached to the state....so for instance, we can record the average ethnic breakdown or something.
-# # seems can do this with updater functions as well as the markove iterator?
-#
